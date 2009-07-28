@@ -35,6 +35,9 @@ class RequestHandler(object):
     def __init__(self, request):
         "Stash the request locally to make the API nicer"
         self.request = request
+        
+        # if session support is active (beaker), load the session data
+        self.session = request.environ.get("beaker.session", None)
 
     def GET(self, *args):
         "Handler method for GET requests."
@@ -67,7 +70,26 @@ class RequestHandler(object):
     def error(self, code, message=''):
         "Sets the given HTTP error code."      
         return HttpResponse(message, status_code=code)
-        
+    
+    def render(self, template, context={}, use_auto_context=True):
+        from jinja2 import Environment, PackageLoader
+        env = Environment(loader=PackageLoader('SimpleBlog', 'templates'))
+    
+        # Register filters
+        from markdown import markdown
+        env.filters["markdown"] = markdown
+    
+        template = env.get_template(template)
+    
+        if use_auto_context:
+            context.update({
+                "request": self.request,
+                "session": self.session
+            })
+    
+        response = template.render(**context)
+    
+        return HttpResponse(response)
 class HttpError(Exception):
     "Generic exception for HTTP issues"
     pass
